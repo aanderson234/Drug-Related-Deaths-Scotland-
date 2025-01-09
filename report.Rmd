@@ -1,0 +1,927 @@
+---
+title: "Mapping Scotland’s Drug Death Crisis: An Analysis of Trends, Disparities, and Policy Failures"
+output: 
+  html_document:
+    css: style.css
+    toc: true
+    toc_float: 
+      collapsed: true
+      smooth_scroll: true
+author: Alexandra Anderson
+Date: "`r Sys.Date()`"
+---
+
+<div style="text-align: center;">
+   <img src="download.png" alt="Scottish Flag" width="50" style="vertical-align: middle;"/>
+</div>
+
+# **Abstract**
+
+## **Executive Summary**
+
+> **This report examines drug misuse trends in Scotland from 1996 to 2023, highlighting key findings:**
+
+- **Trends:** *Drug misuse deaths peaked in 2020 (1,339 deaths)* but remained high at **1,276 in 2023**.  
+- **Causes:** Accidental poisoning is now the **leading cause of death**, with poly-drug use contributing to over **70% of fatalities**.  
+- **Disparities:** Individuals in the **most deprived quintile** experience drug death rates up to **8 times higher** than those in the least deprived quintile.  
+- **Policy Failures:** *Governance issues and inequitable funding exacerbate the crisis*, despite targeted harm reduction measures like **naloxone distribution**.  
+
+---
+
+### **Key Recommendations**
+
+1. **Expand harm reduction services**, including supervised injection sites and mobile units.  
+2. **Scale trauma-informed, gender-sensitive services** to address systemic inequities.  
+3. **Integrate addiction and mental health care**, focusing on deprived areas.  
+
+---
+
+# **Introduction**
+
+> The drug misuse crisis in Scotland remains one of the **most severe public health challenges in Europe** (McAuley, Matheson, and Robertson, 2022).  
+
+According to Scotland's National Records, substance abuse caused **1,276 recorded deaths in 2023**. At **22.4 fatalities per 100,000**, Scotland's drug death rate far exceeds the **UK's average of 7.6**, reflecting ongoing systemic failures despite recent declines.  
+
+This paper examines **drug misuse trends in Scotland** from 1996 to 2023, focusing on:  
+- Geographic, socioeconomic, and gender disparities  
+- Policy interventions (e.g., the **2011 reform of reporting standards**)  
+- The role of **poly-drug use in fatalities**  
+
+The analysis identifies **temporal trends, disparities, and policy implications** while offering actionable **recommendations** to reduce drug-related deaths in Scotland.  
+
+---
+
+## **How to Use This Report**
+
+This report integrates **interactive plots and maps** to explore Scotland's drug misuse crisis:  
+
+- **Hover over** data points for additional information.  
+- Use **zoom** and **pan features in visualizations** to examine specific time periods or categories.  
+- **Click on lines in the legend to hide them from the graph**, making it easier to focus on specific data trends.  
+
+---
+
+# **Methods**
+
+This report utilizes data from **Scotland’s National Records (1996–2023)**, integrating demographic, geographic, and substance-related factors.  
+
+Data cleaning, visualization, and statistical analysis were conducted using:  
+- `ggplot2`  
+- `dplyr`  
+- `plotly`  
+
+Interactive elements were added to **enhance user engagement** with the data.  
+
+---
+
+# **Results and Analysis**
+
+This section explores **Scotland’s drug misuse crisis** through:  
+1. **Statistical trends**  
+2. **Substance group analysis**  
+3. **Key disparities**  
+
+## **Setting Up Environment**    
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+### Load Libraries  
+
+```{r}
+# Load libraries
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(janitor)
+library(here)
+library(tidyr)
+library(openxlsx)
+library(sf)
+library(plotly)
+library(leaflet)
+library(htmltools)  # Load the htmltools package
+library(RColorBrewer)
+```
+
+### Set Up File Path  
+
+```{r}
+file_path <- "C:/Users/alexa/OneDrive/Documents/year 4/forensics/essay/drug-related-deaths-scotland/drug-related-deaths-23-data.xlsx"
+```
+
+## **Trends in Drug Misuse Over Time**
+
+Drug-related deaths (DRDs) in Scotland rose from **244 in 1996** to a peak of **1,339 in 2020**, before declining slightly to **1,276 in 2023** *(Figure 1)*. These trends reflect the evolving challenges of tackling drug misuse, especially the impact of **benzodiazepines** and **opioids**.
+
+The **COVID-19 pandemic** exacerbated vulnerabilities by disrupting **support services**, increasing **social isolation**, and tripling loneliness for those facing **mental health challenges** (O’Sullivan *et al.*, 2021).
+
+---
+
+### Key Takeaways:
+- **Benzodiazepines:** Sharp rise post-2015, particularly street benzos.  
+- **Opioids:** Persistent contributors to drug misuse mortality.  
+- **Policy Influence:** The **2011 Naloxone Programme** showed measurable impact.  
+- **Pandemic Impact:** Increased isolation amplified risks.  
+
+### **Figure 1**: Trends in Drug Misuse Deaths in Scotland by Gender (1996–2023)
+
+- The **dashed navy line** marks a **notable policy change in 2011**, which corresponds to the implementation of the **National Naloxone Programme**.  
+- **Male deaths consistently exceeded female deaths**, highlighting gender disparities in drug misuse trends.  
+- The **peak in total deaths** occurred in **2020**, with both genders contributing to the surge.  
+- Post-2020, a **slight decline** in drug-related deaths has been observed, but the numbers remain alarmingly high.  
+
+**Key takeaway:** Gender-specific vulnerabilities must be addressed to tackle the crisis effectively. While men are disproportionately affected, the systemic barriers faced by women—such as stigma and caregiving stress—must also be addressed.
+
+```{r}
+# Load and process data, create high-res data for the policy line in one step
+gender_all_data <- read.xlsx(file_path, sheet = "Table_1", startRow = 6) %>%
+  clean_names() %>%
+  select(year, sex, drug_misuse_deaths) %>%
+  rename(`Total Deaths` = drug_misuse_deaths)
+
+# Create a high-resolution data frame for the dashed line (only once)
+policy_line <- data.frame(
+  x = rep(2011, 100),  # Fixed x-value for the policy year
+  y = seq(0, max(gender_all_data$`Total Deaths`), length.out = 100),  # Fine-grained y-values
+  text = "Policy Change: A notable policy change occurred in 2011."  # Tooltip text for dashed line
+)
+
+# Create the base ggplot with gender lines, points, and policy line
+gender_all_plot <- ggplot(gender_all_data) +
+  # Add gender lines and points
+  geom_line(aes(x = year, y = `Total Deaths`, color = sex, group = sex), linewidth = 1.2) +
+  geom_point(aes(x = year, y = `Total Deaths`, color = sex), size = 3) +
+  # Add red dashed line
+  geom_line(data = policy_line, aes(x = x, y = y, text = text), color = "navy", linetype = "dashed", size = 1) +
+  labs(
+    title = "Drug Misuse Deaths in Scotland (1996–2023)",
+    x = "Year",
+    y = "Total Deaths",
+    color = "Gender"
+  ) +
+  scale_color_manual(
+    values = c("Females" = "#66c2a5", "Males" = "#8da0cb", "Persons" = "#fc8d62")  # Custom colors for each gender
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",  # Keep legend at the bottom
+    legend.title = element_text(size = 12, face = "bold"),  # Larger legend title
+    legend.text = element_text(size = 10),  # Larger legend text
+    plot.title = element_text(size = 16, face = "bold"),  # Bold and larger title
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10)
+  )
+
+# Convert the ggplot object to plotly, adding the red dashed line as a separate trace
+interactive_gender_all_plot <- ggplotly(gender_all_plot, tooltip = c("x", "y", "color")) %>%
+  plotly::add_trace(
+    x = policy_line$x,
+    y = policy_line$y,
+    mode = "lines",
+    line = list(dash = "dash", color = "navy", width = 2),
+    text = policy_line$text,
+    hoverinfo = "text",  # Show only the custom text
+    showlegend = FALSE  # Don't add to the legend
+  )
+
+# View the plot
+interactive_gender_all_plot
+```
+
+**Note:** The **policy change in 2011** aligns with the introduction of Scotland’s **National Naloxone Programme**, a critical intervention in reducing opioid-related fatalities.  
+
+### **Figure 2**: Trends in Drug Misuse Deaths in Scotland by Substance Group (1996–2023)
+
+- **Benzodiazepines** showed a **dramatic rise post-2015**, becoming the **leading contributor to drug misuse deaths** by 2020.  
+- **Opioid-related deaths** have shown **persistent increases**, further driving Scotland’s alarming drug death rates.  
+- **Deaths involving stimulants and other substances** remained relatively lower but have exhibited **steady growth** over the years.  
+
+**Key takeaway:** The emergence of high-potency illicit substances such as **‘street benzos’** highlights the importance of **tailored interventions** and **enhanced harm reduction strategies** to mitigate the crisis.
+
+```{r}
+# Load and clean the data
+table_3 <- read.xlsx(file_path, sheet = "Table_3", startRow = 6) %>%
+  clean_names()
+
+# Convert Year to numeric and clean substance columns in one step
+table_3_clean <- table_3 %>%
+  mutate(across(
+    c("any_opiate_or_opioid":"alcohol"), 
+    ~ as.numeric(gsub("[^0-9.]", "", .))
+  )) %>%
+  mutate(year = as.numeric(gsub("[^0-9]", "", year))) %>%
+  filter(!is.na(year))  # Remove non-numeric rows
+
+# Reshape into long format, clean deaths, classify substances, and filter unwanted rows
+table_3_long <- table_3_clean %>%
+  pivot_longer(
+    cols = c("any_opiate_or_opioid":"alcohol"),
+    names_to = "substance",
+    values_to = "deaths"
+  ) %>%
+  mutate(
+    deaths = replace_na(as.numeric(deaths), 0),  # Clean deaths in one mutate step
+    group = case_when(
+      substance %in% c("heroin_morphine_note_6", "methadone", "buprenorphine",
+                       "codeine_or_a_codeine_containing_compound", 
+                       "dihydrocodeine_or_a_d_h_c_containing_compound") ~ "Opioids",
+      substance %in% c("any_benzodiazepine", "any_prescribable_benzodiazepine_note_7",
+                       "diazepam_note_8", "any_street_benzodiazepine_note_7",
+                       "etizolam_note_8", "bromazolam_note_5_note_8") ~ "Benzodiazepines",
+      substance %in% c("cocaine", "ecstasy_type", "amphetamines") ~ "Stimulants",
+      substance %in% c("gabapentin_and_or_pregabalin", "alcohol", "nitazenes_note_5") ~ "Others",
+      TRUE ~ "Unclassified"
+    )
+  ) %>%
+  filter(!substance %in% c("all_drug_misuse_deaths", "single_drug_deaths", "poly_drug_deaths"),
+         group != "Unclassified")
+
+# Summarize total deaths by year and group (no further mutate necessary here)
+filtered_data_clean <- table_3_long %>%
+  group_by(year, group) %>%
+  summarize(total_deaths = sum(deaths, na.rm = TRUE), .groups = "drop") %>%
+  rename(
+    Year = year,  # Rename year column for hover text
+    `Total Deaths` = total_deaths  # Rename total_deaths column for hover text
+  )
+
+# Create the faceted interactive plot
+grouped_facet_plot <- ggplot(filtered_data_clean, aes(x = Year, y = `Total Deaths`)) +
+  geom_line(aes(color = group, group = group), size = 1) +
+  geom_point(aes(color = group), size = 2) +
+  labs(
+    title = "Trends in Drug Misuse Deaths by Substance Group (1996–2023)",
+    x = "Year",
+    y = "Number of Deaths"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",  # Remove the legend
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    strip.text = element_text(face = "bold", size = 12)  # Bold facet titles
+  ) +
+  scale_color_brewer(palette = "Set2") +
+  facet_wrap(~ group)
+
+# Convert to interactive plot
+interactive_facet_plot <- ggplotly(grouped_facet_plot, tooltip = c("Year", "Total Deaths", "group")) %>%
+  layout(
+    title = list(text = "Trends in Drug Misuse Deaths by Substance Group (1996–2023)"),
+    hoverlabel = list(font = list(size = 12))
+  )
+
+interactive_facet_plot
+```
+
+In **2022**, **men accounted for 73% of drug-related deaths (DRDs)**, reflecting higher engagement in **intravenous and poly-drug use** (Gossop *et al.*, 1994; Gjersing and Helle, 2021). The rise of **‘street benzos,’** characterised by **high potency and unknown composition**, has disproportionately impacted male users (McAuley *et al.*, 2022).  
+
+**Women**, however, face distinct vulnerabilities, including:  
+- **Caregiving stress**  
+- **Domestic abuse**  
+- **Stigma**, compounded by welfare system changes (Tweed *et al.*, 2022)  
+
+These disparities demand **gender-sensitive harm reduction strategies** that address structural inequities.  
+
+The **2011 policy change**, which introduced new reporting procedures, marks a pivotal point in the timeline. Scotland implemented a **National Naloxone Programme** in 2011, which was associated with a **36% reduction in opioid-related deaths** within four weeks of prison release.  
+- Specifically, the proportion of prison-release opioid-related deaths fell from **9.8% pre-2011** to **6.3% by 2013**, demonstrating the program's significant impact (Bird *et al.*, 2016).  
+
+However, **general practitioners** showed limited awareness and involvement in naloxone distribution, citing:  
+1. A need for **evidence of effectiveness**  
+2. The necessity for **appropriate training** (Matheson *et al.*, 2014)  
+
+These findings highlight the **complex interplay** of socioeconomic factors, healthcare services, and targeted interventions in addressing Scotland's DRD crisis. They emphasise the importance of both **structural changes** and **specific measures** like naloxone distribution in comprehensive drug policy.  
+
+**Critically**, the **persistent rise in deaths prior to 2011** underscores Scotland’s failure to address root causes such as:  
+- **Socio-economic deprivation**  
+- **Inadequate mental health services**  
+
+This trend highlights the need for **proactive policies** that address **structural inequities** alongside **reactive measures** like naloxone distribution.  
+
+---
+
+## **Causes of Drug Misuse Deaths**  
+
+**Accidental poisoning** emerged as the **leading cause of death post-2011** (Figure 3), driven by the rising prevalence of **synthetic opioids**, which are **50–100 times more potent than morphine** (Thompson *et al.*, 2021).  
+
+These substances, often combined with **benzodiazepines**, are implicated in over **60% of drug-related deaths**, highlighting the dangers of **poly-drug use** (McAuley *et al.*, 2022).  
+
+**Key takeaway:** This increase reflects not only shifts in drug supply but also **systemic shortcomings** in prevention and intervention strategies.  
+
+---
+
+### **Figure 3**: Trends in Drug Misuse Deaths by Cause Over Time (1996–2023)
+
+- The **dashed line** marks the division between **pre- and post-2011 periods**, following changes in reporting practices.  
+- **Accidental poisoning** has become the **leading cause of death post-2011**, while deaths attributed to **mental disorders** have decreased significantly, likely reflecting shifts in classification methods.
+
+```{r}
+table_2 <- read.xlsx(file_path, sheet = "Table_2", startRow = 6) %>%
+  clean_names() %>%
+  # Rename columns for simplicity
+  rename(
+    all_drug_misuse_deaths = "all_drug_misuse_deaths", 
+    mental_disorders_due_to_drugs = "mental_and_behavioural_disorders_due_to_drug_use", 
+    accidental_poisoning = "accidental_poisoning", 
+    intentional_self_poisoning = "intentional_self_poisoning", 
+    assault_by_drugs = "assault_by_drugs_etc", 
+    undetermined_intent = "undetermined_intent"
+  ) %>%
+  # Convert 'year' to numeric and filter out NA years
+  mutate(year = as.numeric(year)) %>%
+  filter(!is.na(year))  # Remove non-numeric rows
+
+#Pivot to long format 
+table_2_long <- table_2 %>%
+  pivot_longer(
+    cols = c("mental_disorders_due_to_drugs", "accidental_poisoning", 
+             "intentional_self_poisoning", "assault_by_drugs", 
+             "undetermined_intent"), 
+    names_to = "cause_of_death", 
+    values_to = "deaths"
+  ) %>%
+  mutate(
+    deaths = as.numeric(deaths),
+    deaths = replace_na(deaths, 0),
+    period = ifelse(year < 2011, "Pre-2011", "Post-2011"),
+    cause_of_death = recode(
+      cause_of_death,
+      "mental_disorders_due_to_drugs" = "Mental Disorders",
+      "accidental_poisoning" = "Accidental Poisoning",
+      "intentional_self_poisoning" = "Self-Poisoning",
+      "assault_by_drugs" = "Assault",
+      "undetermined_intent" = "Undetermined"
+    ),
+    hover_text = paste(
+      "Year:", year,
+      "<br>Deaths:", deaths,
+      "<br>Cause of Death:", cause_of_death
+    )
+  )
+
+# Create a high-resolution data frame for the policy line
+policy_line <- data.frame(
+  x = rep(2011, 100),  # Fixed x-value for the policy year
+  y = seq(0, max(table_2_long$deaths, na.rm = TRUE), length.out = 100),  # Fine-grained y-values
+  text = "Policy Change: A notable policy change occurred in 2011."  # Tooltip text
+)
+
+# Create the base ggplot with `color` for compatibility
+combined_plot <- ggplot() +
+  # Add lines and points for causes of death
+  geom_line(data = table_2_long, aes(x = year, y = deaths, color = cause_of_death, group = cause_of_death, text = hover_text), size = 1) +
+  geom_point(data = table_2_long, aes(x = year, y = deaths, color = cause_of_death, text = hover_text), size = 2) +
+  # Add the policy line
+  geom_line(data = policy_line, aes(x = x, y = y), linetype = "dashed", color = "navy", size = 0.8) +
+  labs(
+    title = "Drug Misuse Deaths by Cause Over Time (1996–2023)",
+    subtitle = "Dashed line marks the division between Pre- and Post-2011 periods.",
+    x = "Year",
+    y = "Number of Deaths",
+    color = "Cause of Death"  # Use "color" instead of "colour"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 10),
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10)
+  ) +
+  scale_color_brewer(palette = "Set2")
+
+# Convert the base plot to plotly
+interactive_combined_plot <- ggplotly(combined_plot, tooltip = c("text"))
+
+# Add the red dashed line as a separate trace
+red_line_trace <- list(
+  x = policy_line$x,
+  y = policy_line$y,
+  mode = "lines",
+  line = list(dash = "dash", color = "navy", width = 2),
+  text = policy_line$text,
+  hoverinfo = "text",  # Show only the custom text
+  showlegend = FALSE  # Don't add to the legend
+)
+
+# Add the red dashed line trace to the plot
+interactive_combined_plot <- interactive_combined_plot %>%
+  plotly::add_trace(
+    x = red_line_trace$x,
+    y = red_line_trace$y,
+    mode = red_line_trace$mode,
+    line = red_line_trace$line,
+    text = red_line_trace$text,
+    hoverinfo = red_line_trace$hoverinfo,
+    showlegend = red_line_trace$showlegend
+  )
+
+# View the interactive plot
+interactive_combined_plot
+```
+
+**Note:** The **significant rise in accidental poisoning deaths** reflects the growing impact of **synthetic opioids** and **poly-drug use** in Scotland’s overdose crisis.  
+
+---
+
+### **Figure 4**: Drug Misuse Deaths Over Time by Cause (Pre- and Post-2011)
+
+The **navy dashed line** indicates the **2011 policy change** impacting reporting practices.  
+- **Accidental poisoning** became the **leading cause of death post-2011**, while deaths attributed to **mental disorders** decreased significantly.  
+- Other categories, including **self-poisoning**, **undetermined deaths**, and **assault**, exhibit less consistent trends, highlighting the **multifaceted nature** of drug-related mortality in Scotland.
+
+```{r}
+# Create the faceted ggplot with different scales for each cause of death
+faceted_plot <- ggplot(table_2_long, aes(x = year, y = deaths, color = cause_of_death, group = cause_of_death)) +
+  # Add lines and points for causes of death
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  # Add the policy line
+  geom_vline(xintercept = 2011, linetype = "dashed", color = "navy", size = 0.8) +
+  labs(
+    title = "Drug Misuse Deaths Over Time by Cause (Pre- and Post-2011)",
+    x = "Year",
+    y = "Number of Deaths",
+    color = "Cause of Death"
+  ) +
+  facet_wrap(~ cause_of_death, scales = "free_y") +  # Separate panels with free y-axis scales
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 12, face = "bold"),  # Facet titles
+    legend.position = "none",  # Remove the legend
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10)
+  ) +
+  aes(text = paste(
+    "Year:", year,
+    "<br>Deaths:", deaths,
+    "<br>Cause of Death:", cause_of_death
+  ))  # Add custom hover text
+
+# Convert to interactive plotly object
+interactive_faceted_plot <- ggplotly(faceted_plot, tooltip = "text") %>%
+  layout(
+    title = list(text = "Drug Misuse Deaths Over Time by Cause (Pre- and Post-2011)"),
+    hoverlabel = list(font = list(size = 12))  # Adjust hover text size
+  )
+
+# View the interactive plot
+interactive_faceted_plot
+```
+
+Self-poisoning and deaths of **undetermined intent**, also visualised in **Figure 4**, highlight the **intersection between drug misuse and mental health crises**. Scotland’s failure to **integrate mental health and addiction services** exacerbates these risks, leaving vulnerable individuals without adequate support.  
+
+Furthermore, there appears to be a **growing role of poly-drug use**, which complicates prevention efforts.  
+- **Polydrug use** contributes to **over 70% of deaths** (**Figure 5**), significantly increasing the risk of fatal interactions.  
+- This dominance of poly-drug use reveals **shortcomings in current treatment models**, which often address **single-substance dependency** rather than the **interplay of multiple drugs** (Ives and Ghelani, 2006).  
+
+---
+
+### **Figure 5**: Single-Drug vs. Poly-Drug Deaths in 2023  
+
+- **Poly-drug deaths** accounted for **73.7% (864)** of total drug-related deaths, highlighting the **complexity and heightened risks** associated with substance interactions.  
+- **Single-drug deaths** represented **26.3% (308)** of the total, underscoring the **need for interventions targeting poly-drug use specifically**.  
+
+```{r}
+# Load and clean necessary data for both single-drug and poly-drug deaths in 2023
+table_8 <- read.xlsx(file_path, sheet = "Table_8", startRow = 5) %>%
+  clean_names()
+
+table_3 <- read.xlsx(file_path, sheet = "Table_3", startRow = 6) %>%
+  clean_names()
+
+# Filter for 2023 data
+single_drug_2023 <- table_8 %>%
+  filter(!grepl("all drug misuse deaths", tolower(drugs_implicated), fixed = TRUE)) %>%  # Exclude total row
+  summarize(single_drug_deaths = sum(persons, na.rm = TRUE)) %>%
+  pull(single_drug_deaths)
+
+total_deaths_2023 <- table_3 %>%
+  filter(year == 2023) %>%
+  pull(all_drug_misuse_deaths)
+
+# Calculate poly-drug deaths and create a summary data frame
+poly_drug_2023 <- total_deaths_2023 - single_drug_2023
+
+drug_summary_2023 <- data.frame(
+  type = c("Single-Drug Deaths", "Poly-Drug Deaths"),
+  deaths = c(single_drug_2023, poly_drug_2023)
+) %>%
+  mutate(percentage = round(deaths / sum(deaths) * 100, 1))
+
+# Plot the summary data
+poly_vs_single_plot <- ggplot(drug_summary_2023, aes(x = deaths, y = type, fill = type)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(
+    label = paste0(type, "\nDeaths: ", deaths, "\nPercentage: ", percentage, "%"),
+    x = deaths / 2  # Position text at the middle of each bar
+  ),
+  color = "white",    # Text color for contrast
+  size = 5,           # Font size for text
+  hjust = 0.5         # Center horizontally within the bar
+  ) +
+  labs(
+    title = "Single-Drug vs Poly-Drug Deaths (2023)",
+    x = "Number of Deaths",
+    y = NULL,          # Remove Y-axis label
+    fill = NULL        # Remove legend title
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_blank(),        # Remove Y-axis text
+    axis.ticks.y = element_blank(),       # Remove Y-axis ticks
+    legend.position = "none",             # Remove legend
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  # Centered title
+    axis.title.x = element_text(size = 12)  # X-axis label size
+  ) +
+  scale_fill_brewer(palette = "Set2")  # Use Set2 color palette
+
+poly_vs_single_plot
+```
+
+Addressing these causes requires **interventions that extend beyond harm reduction**.  
+
+- The widespread use of **methadone for opioid dependency**, dispensed by **79.1% of pharmacies in 2006**, demonstrates a commitment to harm reduction.  
+- However, the **lack of progress in needle exchange services** remains a **significant gap** in addressing drug misuse effectively.  
+
+---
+
+## **Socioeconomic Disparities**  
+
+**Socioeconomic deprivation** is a key driver of drug misuse deaths in Scotland:  
+
+- Individuals in the **most deprived quintile (SIMD 1)** experience **death rates up to eight times higher** than those in the **least deprived quintile (SIMD 5)**.  
+- Factors such as the **affordability and accessibility of 'street benzos'** in deprived areas exacerbate this crisis (McAuley *et al.*, 2022).  
+
+**Addressing these disparities requires structural reforms** to ensure:  
+1. **Equitable funding** for harm reduction services.  
+2. **Improved access** to essential interventions in the most deprived areas.  
+
+---
+
+### **Figure 6**: Drug Misuse Deaths Over Time by SIMD Quintile (2000–2023)  
+
+- **Age-standardized rates** highlight stark disparities:  
+  - Individuals in the **most deprived quintile (SIMD 1)** consistently experience the **highest rates** of drug misuse deaths.  
+  - In contrast, the **least deprived quintile (SIMD 5)** shows **significantly lower rates**, underscoring the **impact of socioeconomic inequalities**.
+
+```{r, results="hide"}
+# Load and clean Table 9 (Quintiles)
+table_9 <- read.xlsx(file_path, sheet = "Table_9", startRow = 5) %>%
+  clean_names()
+
+quintile_data <- table_9 %>%
+  select(year, starts_with("simd_quintile")) %>%
+  pivot_longer(cols = -year, names_to = "quintile", values_to = "age_standardized_rate") %>%
+  mutate(quintile = gsub("simd_quintile_", "", quintile))
+
+quintile_data_clean <- quintile_data %>%
+  filter(grepl("age_standardised_rate", quintile)) %>%
+  mutate(
+    quintile_number = case_when(
+      grepl("1_most_deprived", quintile) ~ "1 (Most Deprived)",
+      grepl("5_least_deprived", quintile) ~ "5 (Least Deprived)",
+      TRUE ~ gsub("_age_standardised_rate", "", quintile)
+    )
+  ) %>%
+  select(year, quintile_number, age_standardized_rate)
+
+quintile_data_clean %>% filter(is.na(age_standardized_rate))
+
+#Create Quintile Line plot  
+quintile_plot <- ggplot(quintile_data_clean, aes(x = year, y = age_standardized_rate, color = quintile_number, group = quintile_number)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 1.5, alpha = 0.8) +
+  labs(
+    title = "Drug Misuse Deaths Over Time by SIMD Quintile",
+    subtitle = "Highlighting disparities in age-standardized rates (2000–2023).",
+    x = "Year",
+    y = "Age-Standardized Rate (per 100,000)",
+    color = "Quintile"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 9)
+  ) +
+  scale_color_brewer(palette = "Set2") + # Vibrant color palette
+  aes(text = paste("Year:", year, "<br>Age-Standardized Rate:", round(age_standardized_rate, 2), "<br>Quintile:", quintile_number))  # Custom hover text
+
+# Convert to interactive plot
+quintile_interactive_plot <- ggplotly(quintile_plot, tooltip = "text")
+```
+
+```{r}
+# View Quintile Interactive Plot
+quintile_interactive_plot
+```
+
+**Key Takeaway:**  
+Addressing the stark **socioeconomic disparities** requires **prioritizing harm reduction services** in the most deprived communities. Policies should specifically target barriers to access, including:  
+- **Affordability** of services.  
+- **Stigma** associated with drug misuse.  
+- **Equitable distribution** of harm reduction services.  
+
+---
+
+The funding formula used by **NHS Scotland Boards** and **Alcohol and Drug Partnerships (ADPs)** has disproportionately impacted deprived communities, leading to:  
+- **Increased Drug-Related Death (DRD) rates** (McPhee and Sheridan, 2020).  
+- Limited participation of pharmacies in **needle exchange programs** due to:  
+  - **Safety concerns.**  
+  - Perceived impact on **customer relationships.**  
+
+Despite modest improvements, only **12.5% of Scottish pharmacies** provided needle exchange services as of 2006, reflecting the **persistent challenges** in achieving equitable service distribution (Matheson, Bond, and Tinelli, 2007).  
+
+---
+
+### **Figure 7**: Drug Misuse Deaths Over Time by SIMD Decile (2000–2023)  
+
+- **Age-standardized rates** reveal stark inequalities:  
+  - The **most deprived decile (1)** consistently experiences the **highest rates** of drug misuse deaths, peaking in 2020.  
+  - In contrast, the **least deprived decile (10)** shows **consistently low rates** throughout the period.  
+  - These trends highlight the **socioeconomic gradient** in drug misuse mortality and the **urgent need for targeted interventions**.  
+
+```{r}
+# Load and clean Table 10 (Deciles) just once
+table_10 <- read.xlsx(file_path, sheet = "Table_10", startRow = 6) %>%
+  clean_names()
+
+# Process the decile data in a single step
+decile_data <- table_10 %>%
+  select(year, starts_with("simd_decile")) %>%
+  mutate(across(starts_with("simd_decile"), ~ as.numeric(gsub("[^0-9.]", "", .)))) %>%
+  pivot_longer(cols = -year, names_to = "decile", values_to = "age_standardized_rate") %>%
+  mutate(decile = gsub("simd_decile_", "", decile))
+
+# Clean and filter the decile data
+decile_data_clean <- decile_data %>%
+  separate(decile, into = c("decile_number", "metric"), sep = "_(?=[^_]+$)", extra = "merge", fill = "right") %>%
+  filter(metric == "rate") %>%
+  mutate(
+    decile_number = gsub("_most_deprived", "", decile_number),
+    decile_number = gsub("_age_standardised", "", decile_number),
+    decile_number = gsub("_least_deprived", "", decile_number),
+    decile_number = as.factor(decile_number),
+    decile_label = case_when(
+      decile_number == "1" ~ "1 (Most Deprived)",
+      decile_number == "10" ~ "10 (Least Deprived)",
+      TRUE ~ as.character(decile_number)
+    )
+  ) %>%
+  filter(!is.na(age_standardized_rate))
+
+# Manually assign colors for deciles 1 to 10 (Set2 color palette)
+decile_colors <- c(RColorBrewer::brewer.pal(8, "Set2"), "#Bd82ff", "#A0c4ff")
+
+# Create the decile plot
+decile_plot <- ggplot(decile_data_clean, aes(x = year, y = age_standardized_rate, color = decile_number, group = decile_number)) +
+  geom_line(data = decile_data_clean %>% filter(decile_number %in% c("1", "10")), aes(color = decile_number), size = 1.2) + 
+  geom_line(data = decile_data_clean %>% filter(!decile_number %in% c("1", "10")), aes(color = decile_number), alpha = 0.7, size = 0.7) +
+  geom_point(size = 1.5, alpha = 0.6) +
+  labs(
+    title = "Drug Misuse Deaths Over Time by SIMD Decile",
+    subtitle = "Highlighting disparities in age-standardized rates (2000–2023).",
+    x = "Year",
+    y = "Age-Standardized Rate (per 100,000)",
+    color = "SIMD Decile"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 12, face = "italic"),
+    legend.title = element_text(size = 11),
+    legend.text = element_text(size = 10)
+  ) +
+  scale_color_manual(values = decile_colors, name = "SIMD Decile", breaks = 1:10, labels = c("1 (Most Deprived)", "2", "3", "4", "5", "6", "7", "8", "9", "10 (Least Deprived)")) +
+  aes(text = paste("Year:", year, "<br>Age-Standardized Rate:", round(age_standardized_rate, 2), "<br>Decile:", decile_label))
+
+# Convert to interactive plot
+decile_interactive_plot <- ggplotly(decile_plot, tooltip = "text")
+
+# View Decile Interactive Plot
+decile_interactive_plot
+```
+
+Policy responses have been **inadequate** in addressing the **structural drivers** of drug misuse. Critiques of the governance of drug and alcohol services since 2009 emphasize the following issues:  
+- **Widened inequalities** due to funding decisions.  
+- Disproportionate **risks for already vulnerable communities** (McPhee and Sheridan, 2020).  
+
+Governance failures undermine efforts to tackle the **systemic drivers** of drug misuse and drug-related deaths (DRDs). Key challenges include:  
+- Concentration of **needle exchange services** in urban areas, limited further by:  
+  - **Stigma**.  
+  - **Resource constraints** (Matheson, Bond, and Tinelli, 2007) (Childs *et al.*, 2021).  
+
+**Addressing these disparities** requires:  
+- Investments in **affordable housing**.  
+- Initiatives for **job creation**.  
+- Development of **integrated, community-based health services**.  
+
+---
+
+## **Geographic Patterns**  
+
+**Geographic differences** in drug misuse reflect Scotland’s uneven distribution of **social and health resources**:  
+
+- **Rural areas**, which accounted for only **18.1% of surveyed pharmacies** in 2006, face **significant limitations** in harm reduction service availability.  
+  - This underscores the **need for targeted interventions** to bridge geographic disparities in service provision (Matheson, Bond, and Tinelli, 2007).  
+
+- **Urban areas** like Glasgow experience **higher rates of drug deaths** due to the intersection of:  
+  - **Homelessness**.  
+  - **Poverty**.  
+  - **Social exclusion** (Figure 8).  
+
+- In contrast, **rural areas** report lower rates but encounter challenges like:  
+  - **Geographic isolation**.  
+  - **Limited harm reduction services** (Bailey, Bramley, and Gannon, 2016).  
+
+---
+
+### **Figure 8**: Total Drug Misuse Deaths by Health Board Area in Scotland (2010–2023)  
+
+- The map illustrates **geographic disparities** in drug misuse deaths:  
+  - **Urban areas**, particularly **Greater Glasgow and Clyde**, exhibit the **highest concentration** of deaths, shown in dark blue.  
+  - **Rural and less densely populated regions** report significantly lower totals.  
+  - These trends emphasize **regional inequalities** in drug misuse mortality.  
+
+```{r, results='hide'}
+#import health boards 
+hb_shapes <- st_read("NHS_healthboards_2019.shp") %>% 
+  clean_names()
+
+#join hb shape data with hb deaths 
+table_HB1 <- read.xlsx(file_path, sheet = "Table_HB1", startRow = 5)
+
+persons_hb1 <- table_HB1 %>% 
+  filter(Sex == "Persons") %>%
+  select(-Scotland)
+
+long_HB1 <- persons_hb1 %>% 
+  pivot_longer(
+    cols = c(Ayrshire.and.Arran:Western.Isles), 
+    names_to = "hb_name", 
+    values_to = "deaths" 
+  ) 
+
+# Recode specific health board names in the `hb_name` column
+long_HB1 <- long_HB1 %>%
+  mutate(hb_name = recode(hb_name,
+    "Ayrshire.and.Arran" = "Ayrshire and Arran", 
+    "Dumfries.and.Galloway" = "Dumfries and Galloway", 
+    "Greater.Glasgow.and.Clyde" = "Greater Glasgow and Clyde", 
+    "Forth.Valley" = "Forth Valley", 
+    "Western.Isles" = "Western Isles"
+  ))
+
+
+hb_deaths <- long_HB1 %>% 
+  full_join(hb_shapes, by = "hb_name")
+
+# Ensure the data is in the correct format for plotting (sf object)
+hb_deaths_sf <- st_as_sf(hb_deaths)
+
+# Summarize total deaths by region (Health Board) and year
+total_deaths_by_region <- hb_deaths_sf %>%
+  group_by(hb_name) %>%
+  summarize(total_deaths = sum(deaths, na.rm = TRUE))
+
+# Ensure the data is in WGS84 for compatibility with leaflet
+hb_deaths_sf <- st_transform(hb_deaths_sf, crs = 4326)
+
+# Summarize total deaths by region (Health Board)
+total_deaths_by_region <- hb_deaths_sf %>%
+  group_by(hb_name) %>%
+  summarize(total_deaths = sum(deaths, na.rm = TRUE), .groups = "drop")
+
+# Create the interactive leaflet map
+hb_map <- leaflet(total_deaths_by_region) %>%
+  addTiles() %>%
+  addPolygons(
+    fillColor = ~colorNumeric("YlOrRd", total_deaths)(total_deaths),
+    weight = 1,
+    opacity = 1,
+    color = "white",
+    fillOpacity = 0.7,
+    popup = ~paste(
+      "<strong>Health Board:</strong>", hb_name,
+      "<br><strong>Total Deaths:</strong>", total_deaths
+    )
+  ) %>%
+  addLegend(
+    pal = colorNumeric("YlOrRd", total_deaths_by_region$total_deaths),
+    values = total_deaths_by_region$total_deaths,
+    title = "<b>Total Deaths</b>",
+    position = "bottomright"
+  ) %>%
+  addScaleBar(
+    position = "bottomleft",
+    options = scaleBarOptions(imperial = FALSE)
+  ) %>%
+  addControl(
+    HTML("<div style='background-color: white; padding: 10px; border-radius: 5px; box-shadow: 0px 0px 5px gray;'>
+            <h3 style='margin: 0;'>Interactive Map of Drug Misuse Deaths in Scotland (2010–2023)</h3>
+          </div>"),
+    position = "topright"
+  ) %>%
+  addControl(
+    HTML("<div style='background-color: white; padding: 10px; border-radius: 5px; box-shadow: 0px 0px 5px gray;'>
+            <p style='margin: 0;'>Note: Data reflects total drug misuse deaths reported by region from 2010 to 2023.</p>
+          </div>"),
+    position = "bottomleft"
+  )
+```
+
+```{r}
+hb_map
+```
+
+Expanding harm reduction services in **high-risk regions** like Glasgow, such as **mobile units** or **supervised injection sites**, can help reduce the geographic disparity in drug-related deaths.  
+
+Critically, the **allocation of resources** has not aligned with regional needs. Due to Glasgow’s **high mortality rates** (Figure 8), funding for harm reduction services in the area has been **insufficient to meet demand** (Tweed *et al.*, 2018).  
+- The **expansion of mobile harm reduction units** and **supervised injection facilities** could address some of these disparities.  
+- By doing so, Scotland would be one step closer to ensuring its vulnerable populations have access to **life-saving interventions**.  
+
+---
+
+## **Poly-Drug Use vs. Single-Drug Use**  
+
+- Over **70% of drug-related deaths in 2023** were linked to **poly-drug use** (Figure 5).  
+- Current treatment models, which focus on **single-substance dependencies**, are **inadequate**.  
+
+### Key Issues and Risks  
+1. **Poly-drug users** frequently use **benzodiazepines**, particularly **etizolam**, which is implicated in fatal overdoses.  
+   - Only **1% of deaths** involved **etizolam alone** (McAuley *et al.*, 2022).  
+2. The combination of substances, especially **benzodiazepines and opioids**, dramatically increases the **risk of fatal overdose** (Boon *et al.*, 2020).  
+
+### Interventions Needed  
+- **Expand detoxification and rehabilitation programs** that address interactions between multiple substances.  
+- **Improve education** on the risks of poly-drug use.  
+  - Distribute **naloxone** alongside targeted **public health campaigns** to warn of the risks associated with combining substances.  
+
+---
+
+## **Policy Implications and Recommendations**  
+
+### Expanding Harm Reduction Services  
+- Invest in **supervised injection sites**, **mobile harm reduction units**, and **needle exchange programs**.  
+
+### Addressing Systemic Inequities  
+- Implement **equitable funding** for deprived regions.  
+- Integrate **mental health** and **addiction services**.  
+
+### Targeted Public Health Campaigns  
+- Promote **education** on the risks of poly-drug use.  
+- Expand **naloxone distribution programs** and training initiatives.  
+
+---
+
+# **Conclusion**  
+
+Scotland’s drug misuse deaths result from a complex interplay of **socioeconomic, behavioural, and policy failures**. Over the past three decades, systemic shortcomings have fuelled one of Europe’s **highest drug-related death rates**.  
+
+### Key Challenges   
+1. **Persistent poverty** and **untreated mental health crises**.  
+2. **Inadequate harm reduction services**.  
+3. Governance failures and **inequitable funding practices** (McPhee and Sheridan, 2020).  
+
+### Recommendations    
+- **Sustained investment** in harm reduction strategies.  
+- **Structural reforms** to ensure equitable access to services.  
+- Integration of **mental health and addiction care**.  
+
+The success of the **National Naloxone Programme** demonstrates the potential of **targeted, well-funded interventions** to reduce high-risk mortality (Bird *et al.*, 2016).  
+- However, such efforts must be scaled and complemented by broader **public health initiatives** that prioritise **prevention, equity, and long-term community resilience**.  
+
+By adopting a **proactive, equity-focused approach**, Scotland can pave the way for lasting systemic change, ultimately **saving lives** and improving **community resilience**.  
+
+---
+
+# **Sources and References**  
+
+## Data Source    
+
+- **National Records of Scotland** (2023) *Drug-related deaths in Scotland in 2023.* Available at: [National Records of Scotland](https://www.nrscotland.gov.uk)  
+
+## References    
+
+1.	[Bailey, N., Bramley, G. and Gannon, M., 2016. Poverty and social exclusion in urban and rural areas of Scotland](https://eprints.gla.ac.uk/118831/) 
+2.	[Bird, S.M., McAuley, A., Perry, S. and Hunter, C., 2016. Effectiveness of Scotland's National Naloxone Programme for reducing opioid‐related deaths: a before (2006–10) versus after (2011–13) comparison. Addiction, 111(5), pp.883-891](https://onlinelibrary.wiley.com/doi/full/10.1111/add.13265).
+3.	[Boon, M., van Dorp, E., Broens, S. and Overdyk, F., 2020. Combining opioids and benzodiazepines: effects on mortality and severe adverse respiratory events. Annals of Palliative Medicine, 9(2), pp.54257-54557.](https://apm.amegroups.org/article/view/35734)
+4.	[Childs, E., Biello, K.B., Valente, P.K., Salhaney, P., Biancarelli, D.L., Olson, J., Earlywine, J.J., Marshall, B.D. and Bazzi, A.R., 2021. Implementing harm reduction in non-urban communities affected by opioids and polysubstance use: a qualitative study exploring challenges and mitigating strategies. International Journal of Drug Policy, 90, p.103080.](https://www.sciencedirect.com/science/article/pii/S0955395920304187)
+5.	[Gjersing, L. and Helle, M.K., 2021. Injecting alone is more common among men, frequent injectors and polysubstance users in a sample of people who inject drugs. Substance Use & Misuse, 56(14), pp.2214-2220.](https://www.tandfonline.com/doi/full/10.1080/10826084.2021.1981388)
+6.	[Gossop, M., Griffiths, P. and Strang, J., 1994. Sex differences in patterns of drug taking behaviour: A study at a London community drug team. The British Journal of Psychiatry, 164(1), pp.101-104.](https://www.cambridge.org/core/journals/the-british-journal-of-psychiatry/article/abs/sex-differences-in-patterns-of-drug-taking-behaviour/CB0ECD436BDA26E6D4E1EBCA969E9FB6)
+7.	[Ives, R. and Ghelani, P., 2006. Polydrug use (the use of drugs in combination): A brief review. Drugs: education, prevention and policy, 13(3), pp.225-232.](https://www.tandfonline.com/doi/full/10.1080/09687630600655596?casa_token=TcBjY_NLL0AAAAAA%3AoRBIk9el3uVkzImWzm5aMYyrDJmqzveoZQuPs3IQVrtRfe7i2f7D-psyfNg8HS5yC9pwjkf0pKhPCA)
+8.	[Matheson, C., Bond, C.M. and Tinelli, M., 2007. Community pharmacy harm reduction services for drug misusers: national service delivery and professional attitude development over a decade in Scotland. Journal of public health, 29(4), pp.350-357.](https://academic.oup.com/jpubhealth/article-abstract/29/4/350/1567694)
+9.	[Matheson, C., Pflanz-Sinclair, C., Aucott, L., Wilson, P., Watson, R., Malloy, S., Dickie, E. and McAuley, A., 2014. Reducing drug related deaths: a pre-implementation assessment of knowledge, barriers and enablers for naloxone distribution through general practice. BMC family practice, 15, pp.1-10.](https://link.springer.com/article/10.1186/1471-2296-15-12)
+10.	[McAuley, A., Matheson, C. and Robertson, J.R., 2022. From the clinic to the street: the changing role of benzodiazepines in the Scottish overdose epidemic. International Journal of Drug Policy, 100, p.103512.](https://www.sciencedirect.com/science/article/pii/S0955395921004308)
+11.	[McPhee, I. and Sheridan, B., 2020. AUDIT Scotland 10 years on: Explaining how funding decisions link to increased risk for drug related deaths among the poor. Drugs and Alcohol Today, 20(4), pp.313-322.](https://www.emerald.com/insight/content/doi/10.1108/dat-05-2020-0024/full/html)
+12.	[O’sullivan, R., Burns, A., Leavey, G., Leroi, I., Burholt, V., Lubben, J., Holt-Lunstad, J., Victor, C., Lawlor, B., Vilar-Compte, M. and Perissinotto, C.M., 2021. Impact of the COVID-19 pandemic on loneliness and social isolation: A multi-country study. International journal of environmental research and public health, 18(19), p.9982.](https://www.mdpi.com/1660-4601/18/19/9982)
+13.	[Thompson, R.A., Sanderson, W.T., Westneat, S., Bunn, T., Lavender, A., Tran, A., Holsinger, C., Flammia, D., Zhang, L. and He, Y., 2021. Perceptions of opioid and other illicit drug exposure reported among first responders in the southeast, 2017 to 2018. Health Science Reports, 4(3), p.e335.](https://onlinelibrary.wiley.com/doi/full/10.1002/hsr2.335)
+14.	[Tweed, E.J., Miller, R.G., Schofield, J., Barnsdale, L. and Matheson, C., 2022. Why are drug-related deaths among women increasing in Scotland? A mixed-methods analysis of possible explanations. Drugs: Education, Prevention and Policy, 29(1), pp.62-75.](https://www.tandfonline.com/doi/full/10.1080/09687637.2020.1856786)
+15.	[Tweed, E.J., Rodgers, M., Priyadarshi, S. and Crighton, E., 2018. “Taking away the chaos”: a health needs assessment for people who inject drugs in public places in Glasgow, Scotland. BMC public health, 18, pp.1-9.](https://bmcpublichealth.biomedcentral.com/articles/10.1186/s12889-018-5718-9)
