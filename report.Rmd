@@ -90,24 +90,27 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ### Load Libraries  
 
 ```{r}
-# Load libraries
-library(readxl)
-library(dplyr)
-library(ggplot2)
-library(janitor)
-library(here)
-library(tidyr)
-library(openxlsx)
-library(sf)
-library(plotly)
-library(leaflet)
-library(htmltools)  # Load the htmltools package
-library(RColorBrewer)
+# Load necessary libraries
+# Each of these libraries is loaded to perform specific tasks in data manipulation, visualization, and handling various file formats.
+
+library(readxl)   # Allows reading Excel files (.xls, .xlsx)
+library(dplyr)    # Provides functions for data manipulation (filtering, summarizing, joining datasets)
+library(ggplot2)  # Used for creating static visualizations (plots, bar charts, etc.)
+library(janitor)  # Useful for cleaning column names and other basic data cleaning tasks
+library(here)     # Helps manage file paths relative to the project's directory (avoids hard-coding paths)
+library(tidyr)    # Provides functions to tidy the data (pivoting, reshaping, etc.)
+library(openxlsx) # Used for reading and writing Excel files with more advanced formatting options
+library(sf)       # Used for handling and analyzing spatial data (especially for working with shapefiles)
+library(plotly)   # Used to create interactive plots (especially for web-based reports)
+library(leaflet)  # Used for creating interactive maps (useful for geographic data visualization)
+library(htmltools) # Facilitates working with HTML elements in R (for embedding HTML into R outputs)
+library(RColorBrewer) # Provides color palettes for visualizations, helping make plots more visually appealing
 ```
 
 ### Set Up File Path  
 
 ```{r}
+# Set the file path to the Excel data file
 file_path <- "C:/Users/alexa/OneDrive/Documents/year 4/forensics/essay/drug-related-deaths-scotland/drug-related-deaths-23-data.xlsx"
 ```
 
@@ -135,26 +138,24 @@ The **COVID-19 pandemic** exacerbated vulnerabilities by disrupting **support se
 **Key takeaway:** Gender-specific vulnerabilities must be addressed to tackle the crisis effectively. While men are disproportionately affected, the systemic barriers faced by women—such as stigma and caregiving stress—must also be addressed.
 
 ```{r}
-# Load and process data, create high-res data for the policy line in one step
+# Load and process data: Read the Excel file, clean column names, and select relevant columns
 gender_all_data <- read.xlsx(file_path, sheet = "Table_1", startRow = 6) %>%
   clean_names() %>%
   select(year, sex, drug_misuse_deaths) %>%
   rename(`Total Deaths` = drug_misuse_deaths)
 
-# Create a high-resolution data frame for the dashed line (only once)
+# Create policy line data: Set the year 2011 and generate y-values for the dashed line
 policy_line <- data.frame(
-  x = rep(2011, 100),  # Fixed x-value for the policy year
-  y = seq(0, max(gender_all_data$`Total Deaths`), length.out = 100),  # Fine-grained y-values
-  text = "Policy Change: A notable policy change occurred in 2011."  # Tooltip text for dashed line
+  x = rep(2011, 100),  # Set x to 2011 for policy year, to highlight policy change
+  y = seq(0, max(gender_all_data$`Total Deaths`), length.out = 100),  # Create y-values, creates a smooth line for the policy change
+  text = "Policy Change: A notable policy change occurred in 2011."  # Add tooltip text, to provide information for the plot
 )
 
-# Create the base ggplot with gender lines, points, and policy line
+# Create the plot: Use ggplot to visualize the total deaths by gender and add the policy line
 gender_all_plot <- ggplot(gender_all_data) +
-  # Add gender lines and points
-  geom_line(aes(x = year, y = `Total Deaths`, color = sex, group = sex), linewidth = 1.2) +
-  geom_point(aes(x = year, y = `Total Deaths`, color = sex), size = 3) +
-  # Add red dashed line
-  geom_line(data = policy_line, aes(x = x, y = y, text = text), color = "navy", linetype = "dashed", size = 1) +
+  geom_line(aes(x = year, y = `Total Deaths`, color = sex, group = sex), linewidth = 1.2) +  # Plot lines for gender, to visualize trends by gender
+  geom_point(aes(x = year, y = `Total Deaths`, color = sex), size = 3) +  # Add points to the line, making trends more visible
+  geom_line(data = policy_line, aes(x = x, y = y, text = text), color = "navy", linetype = "dashed", size = 1) +  # Add the policy line, to mark the policy change in 2011
   labs(
     title = "Drug Misuse Deaths in Scotland (1996–2023)",
     x = "Year",
@@ -162,19 +163,19 @@ gender_all_plot <- ggplot(gender_all_data) +
     color = "Gender"
   ) +
   scale_color_manual(
-    values = c("Females" = "#66c2a5", "Males" = "#8da0cb", "Persons" = "#fc8d62")  # Custom colors for each gender
+    values = c("Females" = "#66c2a5", "Males" = "#8da0cb", "Persons" = "#fc8d62")  # Custom colors, to distinguish between genders
   ) +
   theme_minimal() +
   theme(
-    legend.position = "bottom",  # Keep legend at the bottom
-    legend.title = element_text(size = 12, face = "bold"),  # Larger legend title
-    legend.text = element_text(size = 10),  # Larger legend text
-    plot.title = element_text(size = 16, face = "bold"),  # Bold and larger title
+    legend.position = "bottom",  # Position the legend, to keep it out of the way
+    legend.title = element_text(size = 12, face = "bold"),  # Style legend title, improving readability
+    legend.text = element_text(size = 10),  # Style legend text, improving readability
+    plot.title = element_text(size = 16, face = "bold"),  # Style plot title, to make it stand out
     axis.title = element_text(size = 12),
     axis.text = element_text(size = 10)
   )
 
-# Convert the ggplot object to plotly, adding the red dashed line as a separate trace
+# Convert ggplot to Plotly for interactivity and add the policy line as a separate trace
 interactive_gender_all_plot <- ggplotly(gender_all_plot, tooltip = c("x", "y", "color")) %>%
   plotly::add_trace(
     x = policy_line$x,
@@ -182,11 +183,11 @@ interactive_gender_all_plot <- ggplotly(gender_all_plot, tooltip = c("x", "y", "
     mode = "lines",
     line = list(dash = "dash", color = "navy", width = 2),
     text = policy_line$text,
-    hoverinfo = "text",  # Show only the custom text
-    showlegend = FALSE  # Don't add to the legend
+    hoverinfo = "text",  # Display tooltip text, to provide context on the policy change
+    showlegend = FALSE  # Exclude the policy line from the legend. As it’s a static line, not part of the data
   )
 
-# View the plot
+# Display the interactive plot
 interactive_gender_all_plot
 ```
 
@@ -201,33 +202,33 @@ interactive_gender_all_plot
 **Key takeaway:** The emergence of high-potency illicit substances such as **‘street benzos’** highlights the importance of **tailored interventions** and **enhanced harm reduction strategies** to mitigate the crisis.
 
 ```{r}
-# Load and clean the data
+# Load and clean the data: Read the data from Excel and clean column names
 table_3 <- read.xlsx(file_path, sheet = "Table_3", startRow = 6) %>%
   clean_names()
 
-# Convert Year to numeric and clean substance columns in one step
+# Convert Year to numeric and clean substance columns: Remove non-numeric characters and convert columns to numeric
 table_3_clean <- table_3 %>%
   mutate(across(
     c("any_opiate_or_opioid":"alcohol"), 
-    ~ as.numeric(gsub("[^0-9.]", "", .))
+    ~ as.numeric(gsub("[^0-9.]", "", .))  # Remove non-numeric characters, to clean data for analysis
   )) %>%
   mutate(year = as.numeric(gsub("[^0-9]", "", year))) %>%
-  filter(!is.na(year))  # Remove non-numeric rows
+  filter(!is.na(year))  # Remove rows without valid year, to keep only valid data
 
-# Reshape into long format, clean deaths, classify substances, and filter unwanted rows
+# Reshape into long format and classify substances: Pivot data to long format and classify substance groups
 table_3_long <- table_3_clean %>%
   pivot_longer(
     cols = c("any_opiate_or_opioid":"alcohol"),
-    names_to = "substance",
+    names_to = "substance",  # Pivot columns into key-value pairs, to facilitate easier grouping and analysis
     values_to = "deaths"
   ) %>%
   mutate(
-    deaths = replace_na(as.numeric(deaths), 0),  # Clean deaths in one mutate step
-    group = case_when(
-      substance %in% c("heroin_morphine_note_6", "methadone", "buprenorphine",
+    deaths = replace_na(as.numeric(deaths), 0),  # Replace missing deaths with 0, to clean data for analysis
+    group = case_when(  # Classify substances into groups, to categorize data for visualization
+      substance %in% c("heroin_morphine_note_6", "methadone", "buprenorphine", 
                        "codeine_or_a_codeine_containing_compound", 
                        "dihydrocodeine_or_a_d_h_c_containing_compound") ~ "Opioids",
-      substance %in% c("any_benzodiazepine", "any_prescribable_benzodiazepine_note_7",
+      substance %in% c("any_benzodiazepine", "any_prescribable_benzodiazepine_note_7", 
                        "diazepam_note_8", "any_street_benzodiazepine_note_7",
                        "etizolam_note_8", "bromazolam_note_5_note_8") ~ "Benzodiazepines",
       substance %in% c("cocaine", "ecstasy_type", "amphetamines") ~ "Stimulants",
@@ -236,21 +237,21 @@ table_3_long <- table_3_clean %>%
     )
   ) %>%
   filter(!substance %in% c("all_drug_misuse_deaths", "single_drug_deaths", "poly_drug_deaths"),
-         group != "Unclassified")
+         group != "Unclassified")  # Remove unwanted substances, to clean and focus the data
 
-# Summarize total deaths by year and group (no further mutate necessary here)
+# Summarize deaths by year and group: Calculate total deaths for each group per year
 filtered_data_clean <- table_3_long %>%
   group_by(year, group) %>%
   summarize(total_deaths = sum(deaths, na.rm = TRUE), .groups = "drop") %>%
   rename(
-    Year = year,  # Rename year column for hover text
-    `Total Deaths` = total_deaths  # Rename total_deaths column for hover text
+    Year = year,  # Rename year for consistency, makes it more readable for the plot
+    `Total Deaths` = total_deaths  # Rename total_deaths, to improve clarity for plotting
   )
 
-# Create the faceted interactive plot
+# Create a faceted plot: Plot total deaths by substance group across years
 grouped_facet_plot <- ggplot(filtered_data_clean, aes(x = Year, y = `Total Deaths`)) +
-  geom_line(aes(color = group, group = group), size = 1) +
-  geom_point(aes(color = group), size = 2) +
+  geom_line(aes(color = group, group = group), size = 1) +  # Add lines for each group, to show trends by group
+  geom_point(aes(color = group), size = 2) +  # Add points, emphasizing data points for clarity
   labs(
     title = "Trends in Drug Misuse Deaths by Substance Group (1996–2023)",
     x = "Year",
@@ -258,22 +259,23 @@ grouped_facet_plot <- ggplot(filtered_data_clean, aes(x = Year, y = `Total Death
   ) +
   theme_minimal() +
   theme(
-    legend.position = "none",  # Remove the legend
+    legend.position = "none",  # Remove legend, to reduce clutter in the plot
     plot.title = element_text(size = 16, face = "bold"),
     axis.title = element_text(size = 12),
     axis.text = element_text(size = 10),
-    strip.text = element_text(face = "bold", size = 12)  # Bold facet titles
+    strip.text = element_text(face = "bold", size = 12)  # Style facet titles, to make them stand out
   ) +
-  scale_color_brewer(palette = "Set2") +
-  facet_wrap(~ group)
+  scale_color_brewer(palette = "Set2") +  # Use color palette, to make the plot more visually appealing
+  facet_wrap(~ group)  # Create facets by group, to compare trends across substance groups
 
-# Convert to interactive plot
+# Convert to interactive Plotly plot
 interactive_facet_plot <- ggplotly(grouped_facet_plot, tooltip = c("Year", "Total Deaths", "group")) %>%
   layout(
     title = list(text = "Trends in Drug Misuse Deaths by Substance Group (1996–2023)"),
-    hoverlabel = list(font = list(size = 12))
+    hoverlabel = list(font = list(size = 12))  # Customize hover label, to improve hover text readability
   )
 
+# Display the interactive plot
 interactive_facet_plot
 ```
 
@@ -319,10 +321,10 @@ These substances, often combined with **benzodiazepines**, are implicated in ove
 - **Accidental poisoning** has become the **leading cause of death post-2011**, while deaths attributed to **mental disorders** have decreased significantly, likely reflecting shifts in classification methods.
 
 ```{r}
+# Load and clean the data: Read and clean column names, rename for simplicity
 table_2 <- read.xlsx(file_path, sheet = "Table_2", startRow = 6) %>%
   clean_names() %>%
-  # Rename columns for simplicity
-  rename(
+  rename(  # Simplify column names for easier reference
     all_drug_misuse_deaths = "all_drug_misuse_deaths", 
     mental_disorders_due_to_drugs = "mental_and_behavioural_disorders_due_to_drug_use", 
     accidental_poisoning = "accidental_poisoning", 
@@ -330,13 +332,12 @@ table_2 <- read.xlsx(file_path, sheet = "Table_2", startRow = 6) %>%
     assault_by_drugs = "assault_by_drugs_etc", 
     undetermined_intent = "undetermined_intent"
   ) %>%
-  # Convert 'year' to numeric and filter out NA years
   mutate(year = as.numeric(year)) %>%
-  filter(!is.na(year))  # Remove non-numeric rows
+  filter(!is.na(year))  # Clean 'year' column, removing rows with invalid year data
 
-#Pivot to long format 
+# Reshape the data into long format and classify cause of death
 table_2_long <- table_2 %>%
-  pivot_longer(
+  pivot_longer(  # Reshape data, to make it easier to analyze across causes of death
     cols = c("mental_disorders_due_to_drugs", "accidental_poisoning", 
              "intentional_self_poisoning", "assault_by_drugs", 
              "undetermined_intent"), 
@@ -344,10 +345,10 @@ table_2_long <- table_2 %>%
     values_to = "deaths"
   ) %>%
   mutate(
-    deaths = as.numeric(deaths),
-    deaths = replace_na(deaths, 0),
-    period = ifelse(year < 2011, "Pre-2011", "Post-2011"),
-    cause_of_death = recode(
+    deaths = as.numeric(deaths),  # Convert deaths to numeric, to clean up the deaths data
+    deaths = replace_na(deaths, 0),  # Replace missing deaths with 0, filling missing data
+    period = ifelse(year < 2011, "Pre-2011", "Post-2011"),  # Categorize data by period, splitting data into pre and post-policy change
+    cause_of_death = recode(  # Re-code causes of death, to make the categories easier to understand
       cause_of_death,
       "mental_disorders_due_to_drugs" = "Mental Disorders",
       "accidental_poisoning" = "Accidental Poisoning",
@@ -355,58 +356,53 @@ table_2_long <- table_2 %>%
       "assault_by_drugs" = "Assault",
       "undetermined_intent" = "Undetermined"
     ),
-    hover_text = paste(
+    hover_text = paste(  # Create custom hover text for interactivity, providing more detailed info on hover
       "Year:", year,
       "<br>Deaths:", deaths,
       "<br>Cause of Death:", cause_of_death
     )
   )
 
-# Create a high-resolution data frame for the policy line
+# Create a high-resolution data frame for the policy line (2011 policy change)
 policy_line <- data.frame(
-  x = rep(2011, 100),  # Fixed x-value for the policy year
-  y = seq(0, max(table_2_long$deaths, na.rm = TRUE), length.out = 100),  # Fine-grained y-values
-  text = "Policy Change: A notable policy change occurred in 2011."  # Tooltip text
+  x = rep(2011, 100),  # Fix x to 2011 for the policy line, marking the policy change year
+  y = seq(0, max(table_2_long$deaths, na.rm = TRUE), length.out = 100),  # Create y-values, making the line smooth
+  text = "Policy Change: A notable policy change occurred in 2011."  # Add tooltip text, to provide context for the policy line
 )
 
-# Create the base ggplot with `color` for compatibility
+# Create the base plot with ggplot, including the policy line
 combined_plot <- ggplot() +
-  # Add lines and points for causes of death
-  geom_line(data = table_2_long, aes(x = year, y = deaths, color = cause_of_death, group = cause_of_death, text = hover_text), size = 1) +
-  geom_point(data = table_2_long, aes(x = year, y = deaths, color = cause_of_death, text = hover_text), size = 2) +
-  # Add the policy line
-  geom_line(data = policy_line, aes(x = x, y = y), linetype = "dashed", color = "navy", size = 0.8) +
+  geom_line(data = table_2_long, aes(x = year, y = deaths, color = cause_of_death, group = cause_of_death, text = hover_text), size = 1) +  # Add lines for causes of death to visualize trends
+  geom_point(data = table_2_long, aes(x = year, y = deaths, color = cause_of_death, text = hover_text), size = 2) +  # Add points for data points, making data more visible
+  geom_line(data = policy_line, aes(x = x, y = y), linetype = "dashed", color = "navy", size = 0.8) +  # Add dashed policy line,to indicate policy change
   labs(
     title = "Drug Misuse Deaths by Cause Over Time (1996–2023)",
     subtitle = "Dashed line marks the division between Pre- and Post-2011 periods.",
     x = "Year",
     y = "Number of Deaths",
-    color = "Cause of Death"  # Use "color" instead of "colour"
+    color = "Cause of Death"
   ) +
   theme_minimal() +
   theme(
-    legend.position = "bottom",
-    legend.title = element_text(size = 12, face = "bold"),
-    legend.text = element_text(size = 10),
-    plot.title = element_text(size = 16, face = "bold"),
-    plot.subtitle = element_text(size = 12),
+    legend.position = "bottom",  # Place the legend at the bottom, to keep it out of the way
+    plot.title = element_text(size = 16, face = "bold"),  # Style title, to make it stand out  
     axis.title = element_text(size = 12),
     axis.text = element_text(size = 10)
   ) +
-  scale_color_brewer(palette = "Set2")
+  scale_color_brewer(palette = "Set2")  # Use color palette, to improve plot readability
 
-# Convert the base plot to plotly
+# Convert to interactive Plotly plot
 interactive_combined_plot <- ggplotly(combined_plot, tooltip = c("text"))
 
-# Add the red dashed line as a separate trace
+# Add the red dashed line trace for the policy change to the interactive plot
 red_line_trace <- list(
   x = policy_line$x,
   y = policy_line$y,
   mode = "lines",
   line = list(dash = "dash", color = "navy", width = 2),
   text = policy_line$text,
-  hoverinfo = "text",  # Show only the custom text
-  showlegend = FALSE  # Don't add to the legend
+  hoverinfo = "text",  # Show tooltip text, to display details on hover
+  showlegend = FALSE  # Exclude the policy line from the legend, as not part of the data itself
 )
 
 # Add the red dashed line trace to the plot
@@ -438,22 +434,20 @@ The **navy dashed line** indicates the **2011 policy change** impacting reportin
 ```{r}
 # Create the faceted ggplot with different scales for each cause of death
 faceted_plot <- ggplot(table_2_long, aes(x = year, y = deaths, color = cause_of_death, group = cause_of_death)) +
-  # Add lines and points for causes of death
-  geom_line(size = 1) +
-  geom_point(size = 2) +
-  # Add the policy line
-  geom_vline(xintercept = 2011, linetype = "dashed", color = "navy", size = 0.8) +
+  geom_line(size = 1) +  # Add lines for each cause, to visualize the trend over time
+  geom_point(size = 2) +  # Add points for each year, to highlight individual data points
+  geom_vline(xintercept = 2011, linetype = "dashed", color = "navy", size = 0.8) +  # Add policy change line at 2011, to indicate policy impact
   labs(
     title = "Drug Misuse Deaths Over Time by Cause (Pre- and Post-2011)",
     x = "Year",
     y = "Number of Deaths",
     color = "Cause of Death"
   ) +
-  facet_wrap(~ cause_of_death, scales = "free_y") +  # Separate panels with free y-axis scales
+  facet_wrap(~ cause_of_death, scales = "free_y") +  # Separate plots by cause with independent y-axes, to show trends for each cause separately
   theme_minimal() +
   theme(
-    strip.text = element_text(size = 12, face = "bold"),  # Facet titles
-    legend.position = "none",  # Remove the legend
+    strip.text = element_text(size = 12, face = "bold"),  # Bold facet titles, make them stand out
+    legend.position = "none",  # Remove legend, as it's redundant with facet labels
     plot.title = element_text(size = 16, face = "bold"),
     axis.title = element_text(size = 12),
     axis.text = element_text(size = 10)
@@ -462,13 +456,13 @@ faceted_plot <- ggplot(table_2_long, aes(x = year, y = deaths, color = cause_of_
     "Year:", year,
     "<br>Deaths:", deaths,
     "<br>Cause of Death:", cause_of_death
-  ))  # Add custom hover text
+  ))  # Add custom hover text, provides more details on hover
 
 # Convert to interactive plotly object
 interactive_faceted_plot <- ggplotly(faceted_plot, tooltip = "text") %>%
   layout(
     title = list(text = "Drug Misuse Deaths Over Time by Cause (Pre- and Post-2011)"),
-    hoverlabel = list(font = list(size = 12))  # Adjust hover text size
+    hoverlabel = list(font = list(size = 12))  # Adjust hover text size, to improve readability
   )
 
 # View the interactive plot
@@ -489,16 +483,16 @@ Furthermore, there appears to be a **growing role of poly-drug use**, which comp
 - **Single-drug deaths** represented **26.3% (308)** of the total, underscoring the **need for interventions targeting poly-drug use specifically**.  
 
 ```{r}
-# Load and clean necessary data for both single-drug and poly-drug deaths in 2023
+# Load and clean the necessary data for single-drug and poly-drug deaths
 table_8 <- read.xlsx(file_path, sheet = "Table_8", startRow = 5) %>%
   clean_names()
 
 table_3 <- read.xlsx(file_path, sheet = "Table_3", startRow = 6) %>%
   clean_names()
 
-# Filter for 2023 data
+# Filter data for 2023
 single_drug_2023 <- table_8 %>%
-  filter(!grepl("all drug misuse deaths", tolower(drugs_implicated), fixed = TRUE)) %>%  # Exclude total row
+  filter(!grepl("all drug misuse deaths", tolower(drugs_implicated), fixed = TRUE)) %>%  # Exclude total deaths, to focus on individual drugs
   summarize(single_drug_deaths = sum(persons, na.rm = TRUE)) %>%
   pull(single_drug_deaths)
 
@@ -506,41 +500,42 @@ total_deaths_2023 <- table_3 %>%
   filter(year == 2023) %>%
   pull(all_drug_misuse_deaths)
 
-# Calculate poly-drug deaths and create a summary data frame
+# Calculate poly-drug deaths by subtracting single-drug deaths from total deaths
 poly_drug_2023 <- total_deaths_2023 - single_drug_2023
 
+# Create a summary data frame for the plot
 drug_summary_2023 <- data.frame(
   type = c("Single-Drug Deaths", "Poly-Drug Deaths"),
   deaths = c(single_drug_2023, poly_drug_2023)
 ) %>%
-  mutate(percentage = round(deaths / sum(deaths) * 100, 1))
+  mutate(percentage = round(deaths / sum(deaths) * 100, 1))  # Calculate percentage of each type, to show proportion of deaths
 
-# Plot the summary data
+# Plot the data as a bar chart comparing single-drug and poly-drug deaths
 poly_vs_single_plot <- ggplot(drug_summary_2023, aes(x = deaths, y = type, fill = type)) +
-  geom_bar(stat = "identity") +
+  geom_bar(stat = "identity") +  # Create bar chart, comparing deaths between the two types
   geom_text(aes(
     label = paste0(type, "\nDeaths: ", deaths, "\nPercentage: ", percentage, "%"),
-    x = deaths / 2  # Position text at the middle of each bar
+    x = deaths / 2  # Position text in the center of each bar, to display death count and percentage
   ),
-  color = "white",    # Text color for contrast
-  size = 5,           # Font size for text
-  hjust = 0.5         # Center horizontally within the bar
+  color = "white",    # Use white text for contrast, to make it visible against the bars
+  size = 5,           # Set font size, ensuring text is readable
+  hjust = 0.5         # Center text horizontally, improves text alignment
   ) +
   labs(
     title = "Single-Drug vs Poly-Drug Deaths (2023)",
     x = "Number of Deaths",
-    y = NULL,          # Remove Y-axis label
-    fill = NULL        # Remove legend title
+    y = NULL,          # Remove Y-axis label, no need for it in this plot
+    fill = NULL        # Remove fill legend, it's unnecessary here
   ) +
   theme_minimal() +
   theme(
-    axis.text.y = element_blank(),        # Remove Y-axis text
-    axis.ticks.y = element_blank(),       # Remove Y-axis ticks
-    legend.position = "none",             # Remove legend
-    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  # Centered title
-    axis.title.x = element_text(size = 12)  # X-axis label size
+    axis.text.y = element_blank(),        # Remove Y-axis text, to clean up the plot
+    axis.ticks.y = element_blank(),       # Remove Y-axis ticks, to clean up the plot
+    legend.position = "none",             # Remove legend, as mot needed for this chart
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),  # Style and center title, making it stand out
+    axis.title.x = element_text(size = 12)  # Set X-axis label size, to improve readability
   ) +
-  scale_fill_brewer(palette = "Set2")  # Use Set2 color palette
+  scale_fill_brewer(palette = "Set2")  # Apply a color palette, to make the plot more visually appealing
 
 poly_vs_single_plot
 ```
@@ -572,32 +567,35 @@ Addressing these causes requires **interventions that extend beyond harm reducti
   - In contrast, the **least deprived quintile (SIMD 5)** shows **significantly lower rates**, underscoring the **impact of socioeconomic inequalities**.
 
 ```{r, results="hide"}
-# Load and clean Table 9 (Quintiles)
+# Load and clean Table 9 (Quintiles): Read and clean the table containing quintile data
 table_9 <- read.xlsx(file_path, sheet = "Table_9", startRow = 5) %>%
   clean_names()
 
+# Reshape the data: Pivot data to long format and clean quintile names
 quintile_data <- table_9 %>%
-  select(year, starts_with("simd_quintile")) %>%
-  pivot_longer(cols = -year, names_to = "quintile", values_to = "age_standardized_rate") %>%
-  mutate(quintile = gsub("simd_quintile_", "", quintile))
+  select(year, starts_with("simd_quintile")) %>%  # Select relevant columns, to focus on quintiles
+  pivot_longer(cols = -year, names_to = "quintile", values_to = "age_standardized_rate") %>%  # Pivot to long format, simplifies data for analysis
+  mutate(quintile = gsub("simd_quintile_", "", quintile))  # Clean quintile names, to remove prefix for clarity
 
+# Clean the data: Filter and label quintiles, select relevant columns
 quintile_data_clean <- quintile_data %>%
-  filter(grepl("age_standardised_rate", quintile)) %>%
+  filter(grepl("age_standardised_rate", quintile)) %>%  # Filter for age-standardized rates, to focus on relevant data
   mutate(
-    quintile_number = case_when(
+    quintile_number = case_when(  # Label quintiles, to clarify most and least deprived
       grepl("1_most_deprived", quintile) ~ "1 (Most Deprived)",
       grepl("5_least_deprived", quintile) ~ "5 (Least Deprived)",
       TRUE ~ gsub("_age_standardised_rate", "", quintile)
     )
   ) %>%
-  select(year, quintile_number, age_standardized_rate)
+  select(year, quintile_number, age_standardized_rate)  # Select relevant columns, keeping only necessary data
 
+# Check for missing values in age_standardized_rate
 quintile_data_clean %>% filter(is.na(age_standardized_rate))
 
-#Create Quintile Line plot  
+# Create Quintile Line plot: Visualize trends over time for different quintiles
 quintile_plot <- ggplot(quintile_data_clean, aes(x = year, y = age_standardized_rate, color = quintile_number, group = quintile_number)) +
-  geom_line(size = 1.2) +
-  geom_point(size = 1.5, alpha = 0.8) +
+  geom_line(size = 1.2) +  # Plot lines for quintiles, to show trends for each quintile
+  geom_point(size = 1.5, alpha = 0.8) +  # Add points for data clarity, to highlight individual data points
   labs(
     title = "Drug Misuse Deaths Over Time by SIMD Quintile",
     subtitle = "Highlighting disparities in age-standardized rates (2000–2023).",
@@ -607,15 +605,15 @@ quintile_plot <- ggplot(quintile_data_clean, aes(x = year, y = age_standardized_
   ) +
   theme_minimal() +
   theme(
-    legend.position = "right",
+    legend.position = "right",  # Position legend on the right, clears presentation
     legend.title = element_text(size = 10),
     legend.text = element_text(size = 9)
   ) +
-  scale_color_brewer(palette = "Set2") + # Vibrant color palette
-  aes(text = paste("Year:", year, "<br>Age-Standardized Rate:", round(age_standardized_rate, 2), "<br>Quintile:", quintile_number))  # Custom hover text
+  scale_color_brewer(palette = "Set2") +  # Apply color palette, to make the plot visually appealing
+  aes(text = paste("Year:", year, "<br>Age-Standardized Rate:", round(age_standardized_rate, 2), "<br>Quintile:", quintile_number))  # Add custom hover text, which provides detailed info on hover
 
-# Convert to interactive plot
-quintile_interactive_plot <- ggplotly(quintile_plot, tooltip = "text")
+# Convert to interactive plot: Make the plot interactive with Plotly
+quintile_interactive_plot <- ggplotly(quintile_plot, tooltip = "text")  # Add interactivity, allowing users to explore data by hovering over points
 ```
 
 ```{r}
@@ -649,42 +647,42 @@ Despite modest improvements, only **12.5% of Scottish pharmacies** provided need
   - These trends highlight the **socioeconomic gradient** in drug misuse mortality and the **urgent need for targeted interventions**.  
 
 ```{r}
-# Load and clean Table 10 (Deciles) just once
+# Load and clean Table 10 (Deciles): Read and clean decile data from the table
 table_10 <- read.xlsx(file_path, sheet = "Table_10", startRow = 6) %>%
   clean_names()
 
-# Process the decile data in a single step
+# Process the decile data in a single step: Select relevant columns, clean and reshape the data
 decile_data <- table_10 %>%
-  select(year, starts_with("simd_decile")) %>%
-  mutate(across(starts_with("simd_decile"), ~ as.numeric(gsub("[^0-9.]", "", .)))) %>%
-  pivot_longer(cols = -year, names_to = "decile", values_to = "age_standardized_rate") %>%
-  mutate(decile = gsub("simd_decile_", "", decile))
+  select(year, starts_with("simd_decile")) %>%  # Select columns for deciles, to focus on relevant data
+  mutate(across(starts_with("simd_decile"), ~ as.numeric(gsub("[^0-9.]", "", .)))) %>%  # Clean non-numeric values, ensuring data is numeric for analysis
+  pivot_longer(cols = -year, names_to = "decile", values_to = "age_standardized_rate") %>%  # Pivot to long format, to simplify data for analysis
+  mutate(decile = gsub("simd_decile_", "", decile))  # Clean up column names, to make them more readable
 
-# Clean and filter the decile data
+# Clean and filter decile data: Separate decile values, clean up labels, and filter out missing values
 decile_data_clean <- decile_data %>%
-  separate(decile, into = c("decile_number", "metric"), sep = "_(?=[^_]+$)", extra = "merge", fill = "right") %>%
-  filter(metric == "rate") %>%
+  separate(decile, into = c("decile_number", "metric"), sep = "_(?=[^_]+$)", extra = "merge", fill = "right") %>%  # Separate decile info, to split into more meaningful columns
+  filter(metric == "rate") %>%  # Filter for age-standardized rates, to focus on relevant data
   mutate(
-    decile_number = gsub("_most_deprived", "", decile_number),
+    decile_number = gsub("_most_deprived", "", decile_number),  # Clean decile labels, to remove unnecessary text
     decile_number = gsub("_age_standardised", "", decile_number),
     decile_number = gsub("_least_deprived", "", decile_number),
-    decile_number = as.factor(decile_number),
-    decile_label = case_when(
+    decile_number = as.factor(decile_number),  # Convert decile to a factor, to make it easier to categorize
+    decile_label = case_when(  # Label deciles, making them more readable
       decile_number == "1" ~ "1 (Most Deprived)",
       decile_number == "10" ~ "10 (Least Deprived)",
       TRUE ~ as.character(decile_number)
     )
   ) %>%
-  filter(!is.na(age_standardized_rate))
+  filter(!is.na(age_standardized_rate))  # Filter out rows with missing data, to clean the data for analysis
 
-# Manually assign colors for deciles 1 to 10 (Set2 color palette)
-decile_colors <- c(RColorBrewer::brewer.pal(8, "Set2"), "#Bd82ff", "#A0c4ff")
+# Assign colors for the deciles
+decile_colors <- c(RColorBrewer::brewer.pal(8, "Set2"), "#Bd82ff", "#A0c4ff")  # Set color palette, to make the plot visually appealing
 
-# Create the decile plot
+# Create the decile plot: Plot the age-standardized rate over time by decile
 decile_plot <- ggplot(decile_data_clean, aes(x = year, y = age_standardized_rate, color = decile_number, group = decile_number)) +
-  geom_line(data = decile_data_clean %>% filter(decile_number %in% c("1", "10")), aes(color = decile_number), size = 1.2) + 
-  geom_line(data = decile_data_clean %>% filter(!decile_number %in% c("1", "10")), aes(color = decile_number), alpha = 0.7, size = 0.7) +
-  geom_point(size = 1.5, alpha = 0.6) +
+  geom_line(data = decile_data_clean %>% filter(decile_number %in% c("1", "10")), aes(color = decile_number), size = 1.2) +  # Highlight most and least deprived, emphasizing key quintiles
+  geom_line(data = decile_data_clean %>% filter(!decile_number %in% c("1", "10")), aes(color = decile_number), alpha = 0.7, size = 0.7) +  # Plot other deciles, to show all trends
+  geom_point(size = 1.5, alpha = 0.6) +  # Add points for clarity, to highlight data points on the line
   labs(
     title = "Drug Misuse Deaths Over Time by SIMD Decile",
     subtitle = "Highlighting disparities in age-standardized rates (2000–2023).",
@@ -694,18 +692,18 @@ decile_plot <- ggplot(decile_data_clean, aes(x = year, y = age_standardized_rate
   ) +
   theme_minimal(base_size = 12) +
   theme(
-    plot.title = element_text(size = 14, face = "bold"),
-    plot.subtitle = element_text(size = 12, face = "italic"),
-    legend.title = element_text(size = 11),
-    legend.text = element_text(size = 10)
+    plot.title = element_text(size = 14, face = "bold"),  # Style plot title, to make it stand out
+    plot.subtitle = element_text(size = 12, face = "italic"),  # Style subtitle,to make it visually appealing
+    legend.title = element_text(size = 11),  # Style legend title, improves readability
+    legend.text = element_text(size = 10)  # Style legend text, improves readability
   ) +
-  scale_color_manual(values = decile_colors, name = "SIMD Decile", breaks = 1:10, labels = c("1 (Most Deprived)", "2", "3", "4", "5", "6", "7", "8", "9", "10 (Least Deprived)")) +
-  aes(text = paste("Year:", year, "<br>Age-Standardized Rate:", round(age_standardized_rate, 2), "<br>Decile:", decile_label))
+  scale_color_manual(values = decile_colors, name = "SIMD Decile", breaks = 1:10, labels = c("1 (Most Deprived)", "2", "3", "4", "5", "6", "7", "8", "9", "10 (Least Deprived)")) +  # Add color scale, improves visual clarity
+  aes(text = paste("Year:", year, "<br>Age-Standardized Rate:", round(age_standardized_rate, 2), "<br>Decile:", decile_label))  # Add custom hover text, provides detailed info on hover
 
-# Convert to interactive plot
-decile_interactive_plot <- ggplotly(decile_plot, tooltip = "text")
+# Convert to interactive Plotly plot
+decile_interactive_plot <- ggplotly(decile_plot, tooltip = "text")  # Make the plot interactive, allows user interactivity
 
-# View Decile Interactive Plot
+# View the interactive plot
 decile_interactive_plot
 ```
 
@@ -751,25 +749,26 @@ Governance failures undermine efforts to tackle the **systemic drivers** of drug
   - These trends emphasize **regional inequalities** in drug misuse mortality.  
 
 ```{r, results='hide'}
-#import health boards 
+# Import health board shapefile: Read the shapefile containing health board boundaries
 hb_shapes <- st_read("NHS_healthboards_2019.shp") %>% 
   clean_names()
 
-#join hb shape data with hb deaths 
+# Join health board shape data with death data: Read death data and filter for "Persons"
 table_HB1 <- read.xlsx(file_path, sheet = "Table_HB1", startRow = 5)
 
 persons_hb1 <- table_HB1 %>% 
-  filter(Sex == "Persons") %>%
-  select(-Scotland)
+  filter(Sex == "Persons") %>%  # Filter for person-level data, to focus on total deaths
+  select(-Scotland)  # Remove 'Scotland' column, its not relevant for region-specific analysis
 
+# Reshape the data: Pivot health board data into long format
 long_HB1 <- persons_hb1 %>% 
   pivot_longer(
     cols = c(Ayrshire.and.Arran:Western.Isles), 
     names_to = "hb_name", 
     values_to = "deaths" 
-  ) 
+  )
 
-# Recode specific health board names in the `hb_name` column
+# Recode health board names for clarity
 long_HB1 <- long_HB1 %>%
   mutate(hb_name = recode(hb_name,
     "Ayrshire.and.Arran" = "Ayrshire and Arran", 
@@ -779,19 +778,19 @@ long_HB1 <- long_HB1 %>%
     "Western.Isles" = "Western Isles"
   ))
 
-
+# Join health board deaths data with shape data
 hb_deaths <- long_HB1 %>% 
   full_join(hb_shapes, by = "hb_name")
 
-# Ensure the data is in the correct format for plotting (sf object)
+# Ensure data is in the correct format for plotting (sf object)
 hb_deaths_sf <- st_as_sf(hb_deaths)
 
-# Summarize total deaths by region (Health Board) and year
+# Summarize total deaths by health board
 total_deaths_by_region <- hb_deaths_sf %>%
   group_by(hb_name) %>%
   summarize(total_deaths = sum(deaths, na.rm = TRUE))
 
-# Ensure the data is in WGS84 for compatibility with leaflet
+# Transform the data to WGS84 for leaflet compatibility
 hb_deaths_sf <- st_transform(hb_deaths_sf, crs = 4326)
 
 # Summarize total deaths by region (Health Board)
@@ -799,11 +798,11 @@ total_deaths_by_region <- hb_deaths_sf %>%
   group_by(hb_name) %>%
   summarize(total_deaths = sum(deaths, na.rm = TRUE), .groups = "drop")
 
-# Create the interactive leaflet map
+# Create the interactive leaflet map: Plot health boards with drug misuse death data
 hb_map <- leaflet(total_deaths_by_region) %>%
-  addTiles() %>%
-  addPolygons(
-    fillColor = ~colorNumeric("YlOrRd", total_deaths)(total_deaths),
+  addTiles() %>%  # Add base map tiles, to show geographic context
+  addPolygons(  # Add polygons for each health board, to represent regions on the map
+    fillColor = ~colorNumeric("YlOrRd", total_deaths)(total_deaths),  # Set fill color based on total deaths, to visualize death rates
     weight = 1,
     opacity = 1,
     color = "white",
@@ -813,23 +812,23 @@ hb_map <- leaflet(total_deaths_by_region) %>%
       "<br><strong>Total Deaths:</strong>", total_deaths
     )
   ) %>%
-  addLegend(
+  addLegend(  # Add legend for color scale, to help users interpret map colors
     pal = colorNumeric("YlOrRd", total_deaths_by_region$total_deaths),
     values = total_deaths_by_region$total_deaths,
     title = "<b>Total Deaths</b>",
     position = "bottomright"
   ) %>%
-  addScaleBar(
+  addScaleBar(  # Add scale bar, to provide distance context on the map
     position = "bottomleft",
     options = scaleBarOptions(imperial = FALSE)
   ) %>%
-  addControl(
+  addControl(  # Add custom control with map title, to provide description for users
     HTML("<div style='background-color: white; padding: 10px; border-radius: 5px; box-shadow: 0px 0px 5px gray;'>
             <h3 style='margin: 0;'>Interactive Map of Drug Misuse Deaths in Scotland (2010–2023)</h3>
           </div>"),
     position = "topright"
   ) %>%
-  addControl(
+  addControl(  # Add note for context, explains the data shown
     HTML("<div style='background-color: white; padding: 10px; border-radius: 5px; box-shadow: 0px 0px 5px gray;'>
             <p style='margin: 0;'>Note: Data reflects total drug misuse deaths reported by region from 2010 to 2023.</p>
           </div>"),
